@@ -1,5 +1,7 @@
 # keyed-mutex
 
+[![npm Package](https://img.shields.io/npm/v/keyed-mutex?logo=npm "keyed-mutex")](https://www.npmjs.com/package/keyed-mutex)
+
 Lightweight keyed mutex for TypeScript / ESM — provide per-key mutual exclusion and reader/writer semantics so different keys can be locked independently while preserving fairness for writers.
 
 This repository implements two complementary APIs:
