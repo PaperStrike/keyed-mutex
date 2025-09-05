@@ -107,7 +107,7 @@ test.describe('KeyedMutex', () => {
   test.describe('gc', () => {
     class TestMutex extends KeyedMutex {
       public debug() {
-        return { counts: this.counts, mutexes: this.mutexes }
+        return { mutexRefs: this.mutexRefs }
       }
     }
 
@@ -122,9 +122,33 @@ test.describe('KeyedMutex', () => {
       }
 
       // internal bookkeeping should be cleaned up
-      const stats = mutex.debug()
-      expect(stats.counts.size).toBe(0)
-      expect(stats.mutexes.size).toBe(0)
+      expect(mutex.debug().mutexRefs.size).toBe(0)
+    })
+
+    test('tryLock failure does not leak per-key state', async () => {
+      const mutex = new TestMutex()
+      const key = 'leak:test'
+
+      // hold an exclusive lock so tryLock should fail
+      const h = await mutex.lock(key)
+      expect(h).toBeTruthy()
+
+      // map should contain the key while held
+      expect(mutex.debug().mutexRefs.size).toBe(1)
+
+      const tE = mutex.tryLock(key)
+      expect(tE).toBeNull()
+
+      const tS = mutex.tryLockShared(key)
+      expect(tS).toBeNull()
+
+      // failed tries should not have left extra entries
+      expect(mutex.debug().mutexRefs.size).toBe(1)
+
+      h.unlock()
+
+      // after release internal state should be cleaned
+      expect(mutex.debug().mutexRefs.size).toBe(0)
     })
   })
 })

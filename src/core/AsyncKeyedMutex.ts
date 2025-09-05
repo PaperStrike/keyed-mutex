@@ -9,8 +9,10 @@ export default class AsyncKeyedMutex<K = PropertyKey> {
   }
 
   public tryLock<T>(key: K, task: Task<T>) {
-    const [mutex, trackedTask] = this.track(key, task)
-    return mutex.tryLock(trackedTask)
+    const [mutex, trackedTask, subRef] = this.track(key, task)
+    const result = mutex.tryLock(trackedTask)
+    if (result === null) subRef()
+    return result
   }
 
   public async lockShared<T>(key: K, task: Task<T>) {
@@ -19,35 +21,45 @@ export default class AsyncKeyedMutex<K = PropertyKey> {
   }
 
   public tryLockShared<T>(key: K, task: Task<T>) {
-    const [mutex, trackedTask] = this.track(key, task)
-    return mutex.tryLockShared(trackedTask)
+    const [mutex, trackedTask, subRef] = this.track(key, task)
+    const result = mutex.tryLockShared(trackedTask)
+    if (result === null) subRef()
+    return result
   }
 
-  protected track<T>(key: K, task: Task<T>): [mutex: AsyncSharedMutex, trackedTask: Task<T>] {
+  protected track<T>(key: K, task: Task<T>): [mutex: AsyncSharedMutex, trackedTask: Task<T>, subRef: () => void] {
     let mutexRef = this.mutexRefs.get(key)
     if (mutexRef === undefined) {
       mutexRef = [new AsyncSharedMutex(), 0]
       this.mutexRefs.set(key, mutexRef)
     }
 
+    // increase ref count
     mutexRef[1]++
 
-    const [mutex] = mutexRef
+    // decrease ref count
+    const subRef = () => {
+      const refCount = mutexRef[1]
+      if (refCount === 1) {
+        this.mutexRefs.delete(key)
+      }
+      else {
+        mutexRef[1] = refCount - 1
+      }
+    }
+
+    // wrap task to decrease ref count after it's done
     const trackedTask = async () => {
       try {
         return await task()
       }
       finally {
-        const refCount = mutexRef[1]
-        if (refCount === 1) {
-          this.mutexRefs.delete(key)
-        }
-        else {
-          mutexRef[1] = refCount - 1
-        }
+        subRef()
       }
     }
 
-    return [mutex, trackedTask]
+    const [mutex] = mutexRef
+
+    return [mutex, trackedTask, subRef]
   }
 }

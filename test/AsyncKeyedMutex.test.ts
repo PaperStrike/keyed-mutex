@@ -161,5 +161,32 @@ test.describe('AsyncKeyedMutex', () => {
       const stats = km.debug()
       expect(stats.mutexRefs.size).toBe(0)
     })
+
+    test('tryLock failure does not leak per-key state', async () => {
+      const mutex = new TestMutex()
+      const key = 'leak:async'
+
+      // hold exclusive
+      const hold = defer()
+      const pHold = mutex.lock(key, () => hold.promise)
+
+      // map should contain the key while held
+      expect(mutex.debug().mutexRefs.size).toBe(1)
+
+      const tE = await mutex.tryLock(key, () => 'tE')
+      expect(tE).toBeNull()
+
+      const tS = await mutex.tryLockShared(key, () => 'tS')
+      expect(tS).toBeNull()
+
+      // failed tries shouldn't increase refs
+      expect(mutex.debug().mutexRefs.size).toBe(1)
+
+      hold.resolve()
+      await pHold
+
+      // after release internal state should be cleaned
+      expect(mutex.debug().mutexRefs.size).toBe(0)
+    })
   })
 })

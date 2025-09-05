@@ -1,68 +1,74 @@
 import { LockHandle, SharedMutex } from 'async-shared-mutex'
 
 export default class KeyedMutex<K = PropertyKey> {
-  protected counts = new Map<K, number>()
-  protected mutexes = new Map<K, SharedMutex>()
+  protected mutexRefs = new Map<K, [mutex: SharedMutex, refCount: number]>()
 
   public async lock(key: K) {
-    this.addCount(key)
-    return this.trackLock(key, await this.getMutex(key).lock())
+    const [mutex, subCount] = this.track(key)
+    return this.trackLock(await mutex.lock(), subCount)
   }
 
   public tryLock(key: K) {
-    const lock = this.getMutex(key).tryLock()
-    if (lock === null) return null
+    const [mutex, subCount] = this.track(key)
+    const lock = mutex.tryLock()
+    if (lock === null) {
+      subCount()
+      return null
+    }
 
-    this.addCount(key)
-    return this.trackLock(key, lock)
+    return this.trackLock(lock, subCount)
   }
 
   public async lockShared(key: K) {
-    this.addCount(key)
-    return this.trackLock(key, await this.getMutex(key).lockShared())
+    const [mutex, subCount] = this.track(key)
+    return this.trackLock(await mutex.lockShared(), subCount)
   }
 
   public tryLockShared(key: K) {
-    const lock = this.getMutex(key).tryLockShared()
-    if (lock === null) return null
-
-    this.addCount(key)
-    return this.trackLock(key, lock)
-  }
-
-  protected addCount(key: K) {
-    this.counts.set(key, (this.counts.get(key) ?? 0) + 1)
-  }
-
-  protected subCount(key: K) {
-    const count = this.counts.get(key)!
-    if (count === 1) {
-      this.counts.delete(key)
-      this.mutexes.delete(key)
+    const [mutex, subCount] = this.track(key)
+    const lock = mutex.tryLockShared()
+    if (lock === null) {
+      subCount()
+      return null
     }
-    else {
-      this.counts.set(key, count - 1)
-    }
+
+    return this.trackLock(lock, subCount)
   }
 
-  protected trackLock(key: K, lock: LockHandle) {
+  protected track(key: K): [mutex: SharedMutex, subRef: () => void] {
+    let mutexRef = this.mutexRefs.get(key)
+    if (mutexRef === undefined) {
+      mutexRef = [new SharedMutex(), 0]
+      this.mutexRefs.set(key, mutexRef)
+    }
+
+    // increase ref count
+    mutexRef[1]++
+
+    // decrease ref count
+    const subRef = () => {
+      const refCount = mutexRef[1]
+      if (refCount === 1) {
+        this.mutexRefs.delete(key)
+      }
+      else {
+        mutexRef[1] = refCount - 1
+      }
+    }
+
+    const [mutex] = mutexRef
+
+    return [mutex, subRef]
+  }
+
+  protected trackLock(lock: LockHandle, subCount: () => void) {
     let unlocked = false
     return new LockHandle(() => {
       if (unlocked) return
       unlocked = true
 
-      this.subCount(key)
+      subCount()
       lock.unlock()
     })
-  }
-
-  protected getMutex(key: K) {
-    let mutex = this.mutexes.get(key)
-    if (!mutex) {
-      mutex = new SharedMutex()
-      this.mutexes.set(key, mutex)
-    }
-
-    return mutex
   }
 }
