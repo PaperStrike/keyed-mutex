@@ -1,65 +1,44 @@
-import { AsyncSharedMutex, type Task } from 'async-shared-mutex'
+import type { LockHandle } from 'async-shared-mutex'
+import KeyedMutex from './KeyedMutex'
+
+/**
+ * A function to be scheduled for execution.
+ */
+export type Task<T> = () => (T | PromiseLike<T>)
 
 export default class AsyncKeyedMutex<K = PropertyKey> {
-  protected mutexRefs = new Map<K, [mutex: AsyncSharedMutex, refCount: number]>()
+  protected keyedMutex = new KeyedMutex<K>()
 
   public async lock<T>(key: K, task: Task<T>) {
-    const [mutex, trackedTask] = this.track(key, task)
-    return mutex.lock(trackedTask)
+    const lck = await this.keyedMutex.lock(key)
+    return this.run(lck, task)
   }
 
   public tryLock<T>(key: K, task: Task<T>) {
-    const [mutex, trackedTask, subRef] = this.track(key, task)
-    const result = mutex.tryLock(trackedTask)
-    if (result === null) subRef()
-    return result
+    const lck = this.keyedMutex.tryLock(key)
+    return lck !== null
+      ? this.run(lck, task)
+      : null
   }
 
   public async lockShared<T>(key: K, task: Task<T>) {
-    const [mutex, trackedTask] = this.track(key, task)
-    return mutex.lockShared(trackedTask)
+    const lck = await this.keyedMutex.lockShared(key)
+    return this.run(lck, task)
   }
 
   public tryLockShared<T>(key: K, task: Task<T>) {
-    const [mutex, trackedTask, subRef] = this.track(key, task)
-    const result = mutex.tryLockShared(trackedTask)
-    if (result === null) subRef()
-    return result
+    const lck = this.keyedMutex.tryLockShared(key)
+    return lck !== null
+      ? this.run(lck, task)
+      : null
   }
 
-  protected track<T>(key: K, task: Task<T>): [mutex: AsyncSharedMutex, trackedTask: Task<T>, subRef: () => void] {
-    let mutexRef = this.mutexRefs.get(key)
-    if (mutexRef === undefined) {
-      mutexRef = [new AsyncSharedMutex(), 0]
-      this.mutexRefs.set(key, mutexRef)
+  private async run<T>(handle: LockHandle, task: Task<T>): Promise<T> {
+    try {
+      return await task()
     }
-
-    // increase ref count
-    mutexRef[1]++
-
-    // decrease ref count
-    const subRef = () => {
-      const refCount = mutexRef[1]
-      if (refCount === 1) {
-        this.mutexRefs.delete(key)
-      }
-      else {
-        mutexRef[1] = refCount - 1
-      }
+    finally {
+      handle.unlock()
     }
-
-    // wrap task to decrease ref count after it's done
-    const trackedTask = async () => {
-      try {
-        return await task()
-      }
-      finally {
-        subRef()
-      }
-    }
-
-    const [mutex] = mutexRef
-
-    return [mutex, trackedTask, subRef]
   }
 }
