@@ -3,11 +3,11 @@
   "compilerOptions": {
     "baseUrl": ".",
     "noEmit": true,
-    "tsBuildInfoFile": "./build/cache/test.tsbuildinfo"
+    "tsBuildInfoFile": "./build/cache/test.tsbuildinfo",
+    "types": ["node"]
   },
   "include": [
-    "test",
-    "src/global.d.ts"
+    "test"
   ],
   "references": [
     { "path": "./tsconfig.build.json" }

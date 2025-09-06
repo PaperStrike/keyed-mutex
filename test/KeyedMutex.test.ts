@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import LeakDetector from 'jest-leak-detector'
 import KeyedMutex from '../src/core/KeyedMutex'
 import { sleep } from './helpers/utils'
 
@@ -105,36 +106,28 @@ test.describe('KeyedMutex', () => {
   })
 
   test.describe('gc', () => {
-    class TestMutex extends KeyedMutex {
-      public debug() {
-        return { mutexRefs: this.mutexRefs }
-      }
-    }
+    test('does not leak per-key state with transient keys', async () => {
+      const km = new KeyedMutex<object>()
 
-    test('does not leak per-key state after using many transient keys', async () => {
-      const mutex = new TestMutex()
-      const N = 1000
+      let key: object | null = ['what']
+      const detector = new LeakDetector(key)
 
-      for (let i = 0; i < N; i++) {
-        const key = `temp:${i}`
-        const h = await mutex.lockShared(key)
-        h.unlock()
-      }
+      const h = await km.lockShared(key)
+      key = null
 
-      // internal bookkeeping should be cleaned up
-      expect(mutex.debug().mutexRefs.size).toBe(0)
+      h.unlock()
+      await expect(detector.isLeaking()).resolves.toBe(false)
     })
 
     test('tryLock failure does not leak per-key state', async () => {
-      const mutex = new TestMutex()
-      const key = 'leak:test'
+      const mutex = new KeyedMutex<object>()
+
+      let key: object | null = {}
+      const detector = new LeakDetector(key)
 
       // hold an exclusive lock so tryLock should fail
       const h = await mutex.lock(key)
       expect(h).toBeTruthy()
-
-      // map should contain the key while held
-      expect(mutex.debug().mutexRefs.size).toBe(1)
 
       const tE = mutex.tryLock(key)
       expect(tE).toBeNull()
@@ -142,13 +135,12 @@ test.describe('KeyedMutex', () => {
       const tS = mutex.tryLockShared(key)
       expect(tS).toBeNull()
 
-      // failed tries should not have left extra entries
-      expect(mutex.debug().mutexRefs.size).toBe(1)
-
+      // unlock and release
       h.unlock()
+      key = null
 
       // after release internal state should be cleaned
-      expect(mutex.debug().mutexRefs.size).toBe(0)
+      await expect(detector.isLeaking()).resolves.toBe(false)
     })
   })
 })
