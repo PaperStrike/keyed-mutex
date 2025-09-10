@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       async-shared-mutex:
-        specifier: ^2.2.0
-        version: 2.2.0
+        specifier: ^2.2.1
+        version: 2.2.1
     devDependencies:
       '@eslint/compat':
         specifier: ^1.3.2
@@ -416,8 +416,8 @@ packages:
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
-  async-shared-mutex@2.2.0:
-    resolution: {integrity: sha512-mp72kpShmN0t1tMyad+qgluWlatqUU1PEqx8K2J4Ydn1t9OgKmcTRItjNW7DPSrDPZUm8dZ7pgq3sds6MMRxhg==}
+  async-shared-mutex@2.2.1:
+    resolution: {integrity: sha512-oR2g5jHVCubjMnmQ5XtDoD9ZSZ5zQO9bQouo969WriOop2tGOMbW4nIOMPewXfQUvyQ7E3iINUo8ODopgZkOEA==}
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
@@ -1301,7 +1301,7 @@ snapshots:
 
   argparse@2.0.1: {}
 
-  async-shared-mutex@2.2.0: {}
+  async-shared-mutex@2.2.1: {}
 
   balanced-match@1.0.2: {}
 
