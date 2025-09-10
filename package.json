@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Lightweight keyed mutex for JS/TS — per-key async locks (shared & exclusive) to coordinate concurrent readers and writers.",
   "type": "module",
+  "sideEffects": false,
   "main": "./build/index.js",
   "exports": {
     ".": {
