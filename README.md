@@ -160,7 +160,7 @@ Debounce writes while permitting many simultaneous reads per key:
 
 ```ts
 const state = new AsyncKeyedMutex<string>()
-let cache: Record<string, Data>
+const cache: Record<string, Data> = {}
 
 export const readState = (id: string) => state.lockShared(id, () => cache[id])
 export const updateState = (id: string, patch: Partial<Data>) => state.lock(id, async () => {

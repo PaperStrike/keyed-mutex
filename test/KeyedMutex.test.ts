@@ -113,6 +113,7 @@ test.describe('KeyedMutex', () => {
       const detector = new LeakDetector(key)
 
       const h = await km.lockShared(key)
+      // eslint-disable-next-line no-useless-assignment
       key = null
 
       h.unlock()
@@ -137,6 +138,7 @@ test.describe('KeyedMutex', () => {
 
       // unlock and release
       h.unlock()
+      // eslint-disable-next-line no-useless-assignment
       key = null
 
       // after release internal state should be cleaned
