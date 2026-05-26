@@ -23,7 +23,10 @@
     "lock",
     "promise"
   ],
-  "repository": "github:PaperStrike/keyed-mutex",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PaperStrike/keyed-mutex.git"
+  },
   "license": "MIT",
   "files": [
     "dist",
